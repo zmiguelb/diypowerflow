@@ -241,7 +241,8 @@ app.get('/soc', function (req, res) {
 })
 
 
-app.use(express.static('static'))
+app.use('/powerflow',express.static('static'))
 
-server.listen(3333, () => console.log('DIY powerflow listening on port 3333!'))
+
+server.listen( 3333 , () => console.log('DIY powerflow listening on port 3333!'))
 
