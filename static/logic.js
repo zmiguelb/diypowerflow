@@ -9,6 +9,7 @@ var max_inactives_seconds = 180;
 var solar_kwh_name = "solar kwh";
 var grid_kwh_name = "grid kwh";
 var house_kwh_name = "house kwh";
+var grid_exp_name = "grid exp";
 var powerwall_soc_name = "powerwall soc";
 
 //---------------------------------------------
@@ -19,6 +20,7 @@ var grid_watt = 0;
 var grid_kwh = 0;
 var house_watt = 0;
 var house_kwh = 0;
+var grid_exp = 0.0 ;
 var powerwall_watt = 0;
 var powerwall_soc = 0;
 var solar_prediction = 0;
@@ -56,7 +58,9 @@ function updateValues(data) {
        if (data[i].name == grid_kwh_name) {
          grid_kwh = data[i].value;
        }
-
+        if (data[i].name == grid_exp_name) {
+        grid_exp = data[i].value;
+      }
         // HOUSE
 //       if (data[i].name == house_watt_name) {
 //         if(data[i].time + max_inactive_seconds >= now){
@@ -87,22 +91,22 @@ function updateValues(data) {
 
 function electronTime(watt) {
     w = Math.abs(watt);
-    if (w<50) {
+    if (w<150) {
         return 6;
     }
-    if (w<200) {
+    if (w<300) {
         return 4;
     }
-    if (w<500) {
+    if (w<700) {
         return 2
     }
-    if (w<1000) {
+    if (w<1500) {
         return 1;
     }
-    if (w<2000) {
+    if (w<3000) {
         return 0.5;
     }
-    if (w < 3000) {
+    if (w < 6000) {
        return 0.25;
     }
     return 0.125;
@@ -136,7 +140,7 @@ function refresh_ui() {
         $("#solar-dot").removeClass("on");
     }
     prec = (solar_kwh>0)? 2:1;
-    $("#solar_kwh").text(parseFloat(solar_kwh).toPrecision(prec)+" kWh");
+    $("#solar_kwh").text(parseFloat(solar_kwh).toFixed(prec)+" kWh");
     setAnimationTime(solar_watt,"#solar-dot animate.dot1","#solar-dot animate.dot2");
 
     if (grid_watt!=0) {
@@ -157,7 +161,7 @@ function refresh_ui() {
         $("#grid-dot-in").removeClass("on");
     }
     prec = (grid_kwh>0)? 1:1;
-    $("#grid_kwh").text(parseFloat(grid_kwh).toPrecision(prec)+" kWh");
+    $("#grid_kwh").text("Imp "+parseFloat(grid_kwh).toFixed(prec)+" kWh");
     setAnimationTime(grid_watt,"#grid-dot-in animate.dot1, #grid-dot-out animate.dot1","#grid-dot-in animate.dot2, #grid-dot-out animate.dot2");
 
     if (house_watt>0) {
@@ -171,7 +175,10 @@ function refresh_ui() {
         $("#house-dot").removeClass("on");
     }
     prec = (house_kwh>0)? 2:1;
-    $("#house_kwh").text(parseFloat(house_kwh).toPrecision(prec)+" kWh");
+    $("#house_kwh").text(parseFloat(house_kwh).toFixed(prec)+" kWh");
+    prec = (grid_exp>0)? 1:1;
+    $("#grid_exp").text("Exp "+parseFloat(grid_exp).toFixed(prec)+" kWh");
+    
 
     setAnimationTime(house_watt,"#house-dot animate.dot1, #house animate.glow","#house-dot animate.dot2");
 

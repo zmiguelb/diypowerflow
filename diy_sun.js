@@ -45,7 +45,8 @@ function calculateHourWh(panels, lat, lon, sunrise, sunset, sun, hour) {
 }
 
 function getYR(panels_cfg, lat, lon, msl, sunrise, sunset) {
-    var res = request('GET', 'https://api.met.no/weatherapi/locationforecast/1.9/?lat='+lat+'&lon='+lon+'&msl='+msl);
+    var res = request('GET', `https://api.met.no/weatherapi/locationforecast/2.0/classic?lat=${lat}&lon=${lon}&altitude=${msl}`, { headers: { 'User-Agent': 'MiguelBernardo', 'Accept':'application/xml' }});
+    
     var options = {
         attributeNamePrefix : "",
         attrNodeName: false,
@@ -58,9 +59,15 @@ function getYR(panels_cfg, lat, lon, msl, sunrise, sunset) {
         trimValues: true,
         decodeHTMLchar: false,
     };
-    var yr = fastXmlParser.parse(res.getBody('utf8'),options);
+    
+    //console.log(res.getBody('utf8'));
+    
+    const { XMLParser, XMLBuilder, XMLValidator} = require('fast-xml-parser');
+    const parser = new XMLParser();
+    let yr = parser.parse(res.getBody('utf8'),options);
 
     var totalWh = 0;
+    //console.log('Total Wh = '+totalWh)
 
     var sunriseHour = sunrise.clone().set('minute',0).add(-1,'minute');
 
@@ -81,8 +88,10 @@ function getYR(panels_cfg, lat, lon, msl, sunrise, sunset) {
             }
             var hourWh = calculateHourWh(panels_cfg, lat, lon, sunrise, sunset, sunniness,hour);
             totalWh += hourWh;
+
         }
     });
+    
     return totalWh;
 }
 

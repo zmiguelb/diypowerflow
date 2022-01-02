@@ -1,14 +1,15 @@
 //*********************
 // BASIC configuration
-const mqtt_host = "localhost";
-const influx_host = "localhost";
+const mqtt_host = "192.168.1.2";
+const influx_host = "192.168.1.100";
 
 //**********************************************
 // Solar prediction configuration
 // for this to work, you must enter correct values for your location and panel configuration
-const latitude = 52.0;
-const longitude = 20.0;
-const msl = 115; // Mean sea level (in meters)
+// Sobreda 38.644943, -9.176978
+const latitude = 38.644943; 
+const longitude = -9.176978;
+const msl = 35; // Mean sea level (in meters)
 //
 const panels_cfg = [
         // azimuth: in degrees (direction along the horizon, measured from south to west), e.g. 0 is south and 90 is west
@@ -18,14 +19,8 @@ const panels_cfg = [
             name: 'Roof',
             azimuth: 8,
             angle: 45,
-            wattPeak: 1560
-         },
-         {
-            name: 'Terrace',
-            azimuth: 8,
-            angle: 57,
-            wattPeak: 1560
-         }
+            wattPeak: 4500
+           }
         ];
 // API key for darksky.net, in order to use aditionally forecasr from darksky.net you need to get and enter an API key
 const darkskyApi = '';
@@ -34,25 +29,28 @@ const darkskyApi = '';
 // these are the weights for each forecast service, the sum should be 1.0
 // adjust to fit which service better forecasts your location
 //
-const yr_weight = 0.6;
-const darsksky_weight = 0.4;
+const yr_weight = 1.0;
+const darsksky_weight = 0.0;
 
 
 //**************************************************
-// Influx kWh queries
-const timezone = "Europe/Warsaw";
-const house_kwh_query = "SELECT sum(kwh) as kwh FROM energy WHERE (device = 'house' OR device= 'house2') AND time > now() - 1d GROUP BY time(1d) fill(0) TZ('"+timezone+"')";
-const grid_kwh_query = "SELECT sum(kwh) as kwh FROM energy WHERE (device = 'sdm120') AND time > now() - 1d GROUP BY time(1d) fill(0) TZ('"+timezone+"')"
-const solar_kwh_query = "select sum(wh)/1000 as kwh from (select watt/60 as wh from(SELECT MEAN(charging_power) as watt FROM pcm_query_general_status WHERE time > now() - 1d GROUP BY time(60s) fill(null) TZ('"+timezone+"') )) group by time(1d) fill(0) TZ('"+timezone+"')";
-const powerwall_soc_query = "SELECT last(ShuntSOC) FROM generic";
+
+var solar_kwh = 0;
+var house_kwh = 0;
+var grid_imp_kwh = 0;
+var grid_exp_kwh = 0.0;
 
 //**************************************************
 // MQTT watt topics
-const house_watt_topic = 'house/watt';
+const house_watt_topic = 'powerflow/house/watt';
+const house_kwh_topic = 'powerflow/house/kwh';
 const house2_watt_topic = 'house2/watt';
-const grid_watt_topic = 'grid/watt';
+const grid_watt_topic = 'powerflow/grid/watt';
+const grid_imp_kwh_topic = 'powerflow/grid/imp_kwh';
+const grid_exp_kwh_topic = 'powerflow/grid/exp_kwh';
 const powerwall_watt_topic = 'powerwall/watt';
-const solar_watt_topic = "solar/watt";
+const solar_watt_topic = "powerflow/solar/watt";
+const solar_kwh_topic = "powerflow/solar/kwh";
 
 
 //**************************************************
@@ -69,12 +67,12 @@ const mqtt_client = mqtt.connect('mqtt://'+mqtt_host);
 const Influx = require('influx')
 const influx = new Influx.InfluxDB({
   host: influx_host,
-  database: 'powerwall'
+  database: 'efergy'
 })
 
 const influx_batrium = new Influx.InfluxDB({
   host: influx_host,
-  database: 'batrium'
+  database: 'meter'
 })
 
 
@@ -156,6 +154,10 @@ mqtt_client.on('connect', () => {
   mqtt_client.subscribe(grid_watt_topic);
   mqtt_client.subscribe(powerwall_watt_topic);
   mqtt_client.subscribe(solar_watt_topic);
+  mqtt_client.subscribe(grid_imp_kwh_topic);
+  mqtt_client.subscribe(grid_exp_kwh_topic);
+  mqtt_client.subscribe(house_kwh_topic);
+  mqtt_client.subscribe(solar_kwh_topic);
 })
 
 mqtt_client.on("close",function(error){
@@ -186,25 +188,39 @@ mqtt_client.on('message', (topic, message) => {
   if(topic === solar_watt_topic) {
        solar = parseInt(message.toString())
        io.emit('solar', { message: solar });
-   }
+  } else
+  if(topic === grid_imp_kwh_topic) {
+       grid_imp_kwh = parseFloat(message.toString())
+       io.emit('grid_imp_kwh', { message: grid_imp_kwh });
+  }  else
+  if(topic === grid_exp_kwh_topic) {
+       grid_exp_kwh = parseFloat(message.toString())
+       io.emit('grid_exp_kwh', { message: grid_exp_kwh });
+  } else
+  if(topic === house_kwh_topic) {
+       house_kwh = parseFloat(message.toString())
+        io.emit('house_kwh', { message: house_kwh });
+  } else
+  if(topic === solar_kwh_topic) {
+       solar_kwh = parseFloat(message.toString())
+       io.emit('solar_kwh', { message: solar_kwh });
+  }
 })
 
 app.get('/energy', function (req, res) {
-  influx.query(house_kwh_query).then( house => {
-    influx.query(grid_kwh_query).then ( grid => {
-        influx.query(solar_kwh_query).then ( solar => {
-            res.json(
-                [
-                    {"name":"grid kwh","value": (grid === undefined || grid.length == 0)? 0 : grid[1].kwh},
-                    {"name":"house kwh","value":house[1].kwh},
-                    {"name":"solar kwh","value":solar[solar.length -1].kwh}
-                ]
-                );
-        });
-    });
-  });
+    res.json(
+      [
+          {"name":"grid kwh","value": grid_imp_kwh},
+          {"name":"house kwh","value":house_kwh},
+          {"name":"solar kwh","value": solar_kwh},
+          {"name":"grid exp","value": grid_exp_kwh}
+      ]
+      
+      );
+      
 })
 
+/*
 app.get('/soc', function (req, res) {
   influx_batrium.query(powerwall_soc_query).then( soc => {
     res.json(
@@ -213,6 +229,15 @@ app.get('/soc', function (req, res) {
         ]
         );
   });
+})
+*/
+
+app.get('/soc', function (req, res) {
+    res.json(
+        [
+            {"name":"powerwall soc","value":"50"}
+        ]
+        );
 })
 
 

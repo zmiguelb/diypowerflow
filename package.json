@@ -10,14 +10,14 @@
   "license": "ISC",
   "dependencies": {
     "express": "^4.16.3",
+    "fast-xml-parser": "^4.0.0-beta.8",
     "http": "0.0.0",
     "influx": "^5.0.0-alpha.4",
     "moment": "latest",
     "mqtt": "^2.18.8",
+    "node-schedule": "latest",
+    "socket.io": "^2.1.1",
     "suncalc": "latest",
-    "sync-request": "latest",
-    "fast-xml-parser" : "latest",
-    "node-schedule" : "latest",
-    "socket.io": "^2.1.1"
+    "sync-request": "latest"
   }
 }
